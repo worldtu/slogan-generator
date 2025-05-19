@@ -55,8 +55,10 @@ if __name__ == "__main__":
         model.to(device)
     else:
         print("-- Training new model")
-        trainer = ModelTrainer(model, tokenizer, train_dataset, device=device)
-        trainer.train(epochs=3)
+        trainer = ModelTrainer(model, tokenizer, train_dataset, device=device,
+                                val_dataset=test_dataset,
+                                val_batch_size=64)
+        trainer.train(epochs=3, patience=3, min_delta=0.001)
 
     # 6. Example inference
     print("6. Example inference")
