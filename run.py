@@ -6,10 +6,21 @@ from project.trainer import ModelTrainer
 from project.infer import SloganGenerator
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from project.evaluation import RougeEvaluator
+
+import os
+# Set environment variable to avoid tokenizers warning
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-def main():
+if __name__ == "__main__":
+    
+    # Paths
+    model_path = './models/decoder_only_model.pt'
+    tokenizer_path = './models/tokenizer.json'
     CSV_PATH = "./data/valid.csv"
+    train_csv = './data/valid_train.csv'
+    test_csv = './data/valid_test.csv'
 
     # 1. Split dataset into train and test
     print("1. Split dataset into train and test")
@@ -37,13 +48,20 @@ def main():
     # 5. Train
     print("5. Train")
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    trainer = ModelTrainer(model, tokenizer, train_dataset, device=device)
-    trainer.train(epochs=3)
+    # Check if model already exists
+    if os.path.exists(model_path):
+        print("-- Loading existing model")
+        model.load_state_dict(torch.load(model_path))
+        model.to(device)
+    else:
+        print("-- Training new model")
+        trainer = ModelTrainer(model, tokenizer, train_dataset, device=device)
+        trainer.train(epochs=3)
 
     # 6. Example inference
     print("6. Example inference")
     gen = SloganGenerator(model, tokenizer, device)
-    example = "We make eco gadgets for young adults."
+    example = "Funding property projects through peer to peer lending, creating a win-win situation for both investors and property professionals"
     print("\nGenerated slogan:", gen.generate(example))
 
     # 7. Evaluate with ROUGE scores
@@ -62,6 +80,3 @@ def main():
     
     # Save the evaluation results
     evaluator.save_results(train_results, test_results)
-
-if __name__ == "__main__":
-    main()

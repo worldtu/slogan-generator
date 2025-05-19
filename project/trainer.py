@@ -53,6 +53,6 @@ class ModelTrainer:
             avg = total_loss / len(self.loader)
             print(f"Epoch {epoch+1}/{epochs}  loss={avg:.4f}")
         # Save final model
-        torch.save(self.model.state_dict(), "../models/decoder_only_model.pt")
-        # self.tokenizer.save_pretrained("../models/final_tokenizer")
-        print("Model saved to ../models/decoder_only_model.pt")
+        torch.save(self.model.state_dict(), "./models/decoder_only_model.pt")
+        # self.tokenizer.save_pretrained("./models/final_tokenizer")
+        print("Model saved to ./models/decoder_only_model.pt")
