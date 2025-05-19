@@ -27,14 +27,22 @@ class ModelTrainer:
             num_workers=0,
             collate_fn=dataset.collate_fn
         )
-        self.optim = torch.optim.Adam(self.model.parameters(), lr=lr)
-        self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
+        self.optim = torch.optim.AdamW(self.model.parameters(), lr=lr, weight_decay=0.01)
+        self.criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
+        
+        # Add learning rate scheduler
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            self.optim, mode='min', factor=0.5, patience=1, verbose=True
+        )
 
     def train(self, epochs: int = 5):
         self.model.train()
+        best_loss = float('inf')
+
         for epoch in range(epochs):
             total_loss = 0.0
             progress_bar = tqdm(self.loader, desc=f"Epoch {epoch+1}/{epochs}")
+
             for inputs, labels in progress_bar:
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
                 
@@ -45,6 +53,8 @@ class ModelTrainer:
                 loss = self.criterion(logits.view(T*B, V), labels.view(T*B))
                 
                 loss.backward()
+                # Gradient clipping to prevent exploding gradients
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 self.optim.step()
 
                 total_loss += loss.item()
@@ -52,7 +62,12 @@ class ModelTrainer:
 
             avg = total_loss / len(self.loader)
             print(f"Epoch {epoch+1}/{epochs}  loss={avg:.4f}")
-        # Save final model
-        torch.save(self.model.state_dict(), "./models/decoder_only_model.pt")
-        # self.tokenizer.save_pretrained("./models/final_tokenizer")
-        print("Model saved to ./models/decoder_only_model.pt")
+            
+            # Update learning rate based on loss
+            self.scheduler.step(avg_loss)
+        
+            # Save model if it's the best so far
+            if avg_loss < best_loss:
+                best_loss = avg_loss
+                torch.save(self.model.state_dict(), "./models/decoder_only_model.pt")
+                print(f"Model saved with loss: {best_loss:.4f}")
