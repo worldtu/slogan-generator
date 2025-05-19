@@ -28,11 +28,11 @@ class ModelTrainer:
             collate_fn=dataset.collate_fn
         )
         self.optim = torch.optim.AdamW(self.model.parameters(), lr=lr, weight_decay=0.01)
-        self.criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
+        self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
         
         # Add learning rate scheduler
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optim, mode='min', factor=0.5, patience=1, verbose=True
+            self.optim, mode='min', factor=0.5, patience=1
         )
 
     def train(self, epochs: int = 5):
