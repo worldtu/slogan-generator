@@ -8,12 +8,12 @@ class DecoderOnlyTransformer(nn.Module):
     def __init__(
         self,
         vocab_size: int,
-        d_model: int = 512,
-        n_head: int = 8,
-        num_layers: int = 12,
-        dim_ff: int = 2048,
+        d_model: int = 256,
+        n_head: int = 4,
+        num_layers: int = 6,
+        dim_ff: int = 1024,
         max_len: int = 512,
-        dropout: int = 0.1
+        dropout: int = 0.2
     ):
         super().__init__()
         self.token_emb = nn.Embedding(vocab_size, d_model)
@@ -75,3 +75,4 @@ class DecoderOnlyTransformer(nn.Module):
         logits = self.out_head(out)
         
         return logits
+        

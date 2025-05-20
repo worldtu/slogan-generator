@@ -10,14 +10,32 @@ class CausalLMData(Dataset):
     def __init__(self, csv_path: str, tokenizer, max_length: int = 128):
         df = pd.read_csv(csv_path)
         self.examples = []
+        
+        # Define special token strings based on your TokenizerTrainer
+        bos_token_str = "[CLS]"
+        sep_token_str = "[SEP]"
+        eos_token_str = "[SEP]" # Using SEP as EOS for this causal LM setup
+
+        # Get token IDs
+        # Ensure these tokens were part of 'special_tokens' in BpeTrainer
+        bos_token_id = tokenizer.token_to_id(bos_token_str)
+        sep_token_id = tokenizer.token_to_id(sep_token_str)
+        eos_token_id = tokenizer.token_to_id(eos_token_str)
+        self.pad_token_id = tokenizer.token_to_id("[PAD]")
+
+        if bos_token_id is None or sep_token_id is None or eos_token_id is None or self.pad_token_id is None:
+            raise ValueError("One or more special tokens ([CLS], [SEP], [PAD]) not found in tokenizer vocabulary. "
+                             "Ensure they are in 'special_tokens' during BpeTrainer initialization.")
+
         for _, row in df.iterrows():
-            text = f"{tokenizer.bos_token} {row['desc']} {tokenizer.sep_token} {row['output']} {tokenizer.eos_token}"
-            ids = tokenizer.encode(text)
+            text = f"{bos_token_str} {row['desc']} {sep_token_str} {row['output']} {eos_token_str}"
+            encoding = tokenizer.encode(text)
+            ids = encoding.ids # Get the list of token IDs
+            
             if len(ids) > max_length:
-                ids = ids[:max_length]
-                ids[-1] = tokenizer.eos_token_id
+                ids = ids[:max_length-1] + [eos_token_id] # Ensure sequence ends with EOS
+            
             self.examples.append(ids)
-        self.pad_id = tokenizer.pad_token_id or tokenizer.eos_token_id
 
     def __len__(self):
         return len(self.examples)

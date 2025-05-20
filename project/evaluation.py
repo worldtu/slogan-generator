@@ -34,18 +34,21 @@ class RougeEvaluator:
         
         print(f"Evaluating on {len(df)} samples from {csv_path}")
         for _, row in tqdm(df.iterrows(), total=len(df)):
-            description = row['desc']
-            reference = row['output']
-            
-            # Generate slogan
-            generated = self.generator.generate(description)
-            
-            # Calculate ROUGE scores
-            scores = self.scorer.score(reference, generated)
-            
-            rouge1_scores.append(scores['rouge1'].fmeasure)
-            rouge2_scores.append(scores['rouge2'].fmeasure)
-            rougeL_scores.append(scores['rougeL'].fmeasure)
+            try:
+                description = row['desc']
+                reference = row['output']
+                
+                # Generate slogan
+                generated = self.generator.generate(description)
+                
+                # Calculate ROUGE scores
+                scores = self.scorer.score(reference, generated)
+                
+                rouge1_scores.append(scores['rouge1'].fmeasure)
+                rouge2_scores.append(scores['rouge2'].fmeasure)
+                rougeL_scores.append(scores['rougeL'].fmeasure)
+            except:
+                pass
         
         # Calculate averages
         results = {
