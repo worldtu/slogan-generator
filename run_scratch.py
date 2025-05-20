@@ -1,12 +1,12 @@
 import torch
-from project.tokenizer_bpe import TokenizerTrainer
-from project.data import CausalLMData
-from project.model import DecoderOnlyTransformer
-from project.trainer import ModelTrainer
-from project.infer import SloganGenerator
+from scratch_model.tokenizer import TokenizerTrainer
+from scratch_model.data import CausalLMData
+from scratch_model.model import DecoderOnlyTransformer
+from scratch_model.trainer import ModelTrainer
+from scratch_model.infer import SloganGenerator
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from project.evaluation import RougeEvaluator
+from scratch_model.evaluation import RougeEvaluator
 
 import os
 # Set environment variable to avoid tokenizers warning
@@ -26,15 +26,15 @@ if __name__ == "__main__":
     print("1. Split dataset into train and test")
     df = pd.read_csv(CSV_PATH)
     train_df, test_df = train_test_split(df, test_size=0.2, random_state=123)
+    train_csv = "./data/valid_train.csv"
+    test_csv = "./data/valid_test.csv"
     train_df.to_csv(train_csv, index=False)
     test_df.to_csv(test_csv, index=False)
 
     # 2. Train tokenizer on full dataset
     print("2. Train tokenizer on full dataset")
-    # tt = TokenizerTrainer()
-    # tokenizer = tt.train(train_csv)
-    builder = TokenizerTrainer(vocab_size=8000, min_frequency=3)
-    tokenizer = builder.train(csv_path=train_csv)
+    tt = TokenizerTrainer()
+    tokenizer = tt.train(train_csv)
 
     # 3. Prepare datasets
     print("3. Prepare datasets")
@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
     # 4. Build model
     print("4. Build model")
-    model = DecoderOnlyTransformer(vocab_size=tokenizer.get_vocab_size())
+    model = DecoderOnlyTransformer(vocab_size=tokenizer.vocab_size)
 
     # 5. Train
     print("5. Train")
@@ -55,10 +55,10 @@ if __name__ == "__main__":
         model.to(device)
     else:
         print("-- Training new model")
-        trainer = ModelTrainer(model, tokenizer, train_dataset, device=device, batch_size=64,
+        trainer = ModelTrainer(model, tokenizer, train_dataset, device=device,
                                 val_dataset=test_dataset,
                                 val_batch_size=64)
-        trainer.train(epochs=50, patience=7, min_delta=0.001)
+        trainer.train(epochs=3, patience=3, min_delta=0.001)
 
     # 6. Example inference
     print("6. Example inference")
@@ -72,12 +72,12 @@ if __name__ == "__main__":
     
     # Evaluate on training set (you can limit the number of samples for faster evaluation)
     print("\nEvaluating on training set:")
-    train_results = evaluator.evaluate_dataset(train_csv)
+    train_results = evaluator.evaluate_dataset(train_csv, num_samples=100)
     evaluator.print_results(train_results)
     
     # Evaluate on test set
     print("\nEvaluating on test set:")
-    test_results = evaluator.evaluate_dataset(test_csv)
+    test_results = evaluator.evaluate_dataset(test_csv, num_samples=100)
     evaluator.print_results(test_results)
     
     # Save the evaluation results
