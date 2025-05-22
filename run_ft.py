@@ -52,6 +52,7 @@ if __name__ == "__main__":
     print(f"-- Using device: {device}")
     model.to(device) # Move model to device before checking path or training
 
+    model_path = "./models/distilbart_slogan_model_final.pt"
     if os.path.exists(model_path):
         print(f"-- Loading existing fine-tuned model from {model_path}")
         model.load_state_dict(torch.load(model_path, map_location=device))
@@ -76,11 +77,11 @@ if __name__ == "__main__":
     evaluator = RougeEvaluator(model, tokenizer, device=device)
     
     print("\nEvaluating on training set (subset):")
-    train_results = evaluator.evaluate_dataset(train_csv, num_samples=50) # Reduced samples for faster eval
-    evaluator.print_results(train_results, "Training Set (Subset)")
+    train_results, train_preds = evaluator.evaluate_dataset(train_csv, num_samples=50) # Reduced samples for faster eval
+    evaluator.print_results(train_results)
     
     print("\nEvaluating on test set (subset):")
-    test_results = evaluator.evaluate_dataset(test_csv, num_samples=50) # Reduced samples for faster eval
-    evaluator.print_results(test_results, "Test Set (Subset)")
+    test_results, test_preds = evaluator.evaluate_dataset(test_csv, num_samples=50) # Reduced samples for faster eval
+    evaluator.print_results(test_results)
     
     evaluator.save_results(train_results, test_results, output_file=f"results/rouge_scores_{model_name.replace('/', '_')}.txt")

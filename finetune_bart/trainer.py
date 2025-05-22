@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
+import os
 
 
 class ModelTrainer:
@@ -47,7 +48,7 @@ class ModelTrainer:
                 num_workers=0,
                 collate_fn=val_collate_function
             )
-        
+
         # # Add learning rate scheduler
         # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         #     self.optim, mode='min', factor=0.5, patience=1
@@ -57,7 +58,7 @@ class ModelTrainer:
         """Run validation and return average loss."""
         if self.val_dataset is None:
             return None
-            
+
         self.model.eval()
         total_loss = 0.0
         
@@ -92,7 +93,7 @@ class ModelTrainer:
         self.model.train()
         best_loss = float('inf')
         no_improve_count = 0
-        
+
         for epoch in range(epochs):
             total_loss = 0.0
             progress_bar = tqdm(self.loader, desc=f"Epoch {epoch+1}/{epochs}")
@@ -119,9 +120,6 @@ class ModelTrainer:
             # Use validation loss if available, otherwise use training loss
             current_loss = val_loss if val_loss is not None else train_avg_loss
             print(f"Epoch {epoch+1}/{epochs}  train_loss={train_avg_loss:.4f}  val_loss={val_loss:.4f}")
-            
-            # Update learning rate based on loss
-            self.scheduler.step(current_loss)
 
             # Early stopping
             if current_loss < best_loss - min_delta:
@@ -136,7 +134,7 @@ class ModelTrainer:
                 if no_improve_count >= patience:
                     print(f"Early stopping triggered after {patience} epochs without improvement.")
                     break
-    
+
         # Save final model regardless of performance
         torch.save(self.model.state_dict(), "./models/distilbart_slogan_model_final.pt")
         print("Training completed!")
