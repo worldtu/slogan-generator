@@ -7,6 +7,8 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from finetune_bart.evaluation import RougeEvaluator
 from transformers import BartForConditionalGeneration
+from peft import LoraConfig, get_peft_model, TaskType, PeftModel # Added PEFT imports
+
 
 import os
 # Set environment variable to avoid tokenizers warning
@@ -17,7 +19,7 @@ if __name__ == "__main__":
     
     # Paths
     model_name = "sshleifer/distilbart-cnn-6-6" # Changed model identifier
-    model_path = f'./models/fine_tuned_{model_name.replace("/", "_")}.pt'
+    lora_model_dir = f'./models/lora_adapters_{model_name.replace("/", "_")}' 
     CSV_PATH = "./data/valid.csv"
     train_csv = './data/valid_train.csv'
     test_csv = './data/valid_test.csv'
@@ -47,23 +49,47 @@ if __name__ == "__main__":
     model = BartForConditionalGeneration.from_pretrained(model_name)
 
     # 5. Train Fine-tuned Model
-    print("5. Train Fine-tuned Model")
+    print("5. Apply LoRA or Load Fine-tuned LoRA Model")
     device = "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
     print(f"-- Using device: {device}")
-    model.to(device) # Move model to device before checking path or training
 
-    model_path = "./models/distilbart_slogan_model_final.pt"
-    if os.path.exists(model_path):
-        print(f"-- Loading existing fine-tuned model from {model_path}")
-        model.load_state_dict(torch.load(model_path, map_location=device))
+    # Check if LoRA adapters already exist
+    # A common file in a PEFT saved directory is 'adapter_config.json'
+    if os.path.exists(os.path.join(lora_model_dir, "adapter_config.json")):
+        print(f"-- Loading existing LoRA adapters from {lora_model_dir}")
+        # Load the base model and then apply the saved LoRA adapters
+        model = PeftModel.from_pretrained(model, lora_model_dir)
     else:
-        print("-- Training new model")
+        print("-- Preparing new model for LoRA fine-tuning")
+        # Define LoRA configuration
+        lora_config = LoraConfig(
+            r=16,  # Rank of the update matrices.
+            lora_alpha=32,  # Alpha scaling factor.
+            # Target modules for BART. You might need to inspect your specific model's layer names.
+            # Common ones are query, key, value, output projections in attention, and fc layers.
+            target_modules=["q_proj", "v_proj", "k_proj"],
+            lora_dropout=0.1,
+            bias="none",  # or "all" or "lora_only"
+            task_type=TaskType.SEQ_2_SEQ_LM  # Crucial for sequence-to-sequence models like BART
+        )
+        # Wrap the base model with PEFT LoRA configuration
+        model = get_peft_model(model, lora_config)
+        model.print_trainable_parameters() # Useful to see how many parameters are being trained
+
+        # Move the PEFT model to the device before training
+        model.to(device)
+        
+        print("-- Training new model with LoRA")
         # Note: Batch size might need to be reduced for BART depending on GPU memory
         # e.g., batch_size=8 or 16
-        trainer = ModelTrainer(model, tokenizer, train_dataset, device=device, batch_size=8, lr=5e-5,
+        trainer = ModelTrainer(model, tokenizer, train_dataset, device=device, batch_size=16, lr=3e-5,
                                 val_dataset=test_dataset,
-                                val_batch_size=8) # Pass tokenizer
-        trainer.train(epochs=3, patience=3, min_delta=0.001) # Fine-tuning usually requires fewer epochs
+                                val_batch_size=16,
+                                model_save_path=lora_model_dir)
+        trainer.train(epochs=15, patience=3, min_delta=0.001) # Fine-tuning usually requires fewer epochs
+
+    # Ensure the final model (base + adapters) is on the correct device for inference
+    model.to(device)
 
     # 6. Example inference
     print("6. Example inference")
@@ -79,9 +105,11 @@ if __name__ == "__main__":
     print("\nEvaluating on training set (subset):")
     train_results, train_preds = evaluator.evaluate_dataset(train_csv, num_samples=50) # Reduced samples for faster eval
     evaluator.print_results(train_results)
+    train_preds.to_csv(f"results/train_predictions_lora_{model_name.replace('/', '_')}.csv", index=False)
     
     print("\nEvaluating on test set (subset):")
     test_results, test_preds = evaluator.evaluate_dataset(test_csv, num_samples=50) # Reduced samples for faster eval
     evaluator.print_results(test_results)
+    test_preds.to_csv(f"results/test_predictions_lora_{model_name.replace('/', '_')}.csv", index=False)
     
     evaluator.save_results(train_results, test_results, output_file=f"results/rouge_scores_{model_name.replace('/', '_')}.txt")

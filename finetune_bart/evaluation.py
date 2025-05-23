@@ -65,11 +65,11 @@ class RougeEvaluator:
                 predicts.append("")
 
         avg_scores = {metric: sum(values)/len(values) for metric, values in all_scores.items()}
-        results = {
+        results = pd.DataFrame({
             'descs': descs,
             'predicts': predicts,
             'referes': referes,
-        }
+        })
         return avg_scores, results
 
     def print_results(self, results):
