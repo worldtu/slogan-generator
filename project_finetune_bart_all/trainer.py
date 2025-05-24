@@ -20,13 +20,15 @@ class ModelTrainer:
         device: str = "cpu",
         val_dataset: Dataset = None,
         val_batch_size: int = None,
-        warmup_ratio: float = 0.1
+        warmup_ratio: float = 0.1,
+        model_save_path: str = None
     ):
         self.device = device
         self.model = model.to(device)
         self.tokenizer = tokenizer
         self.dataset = dataset
         collate_function = self.dataset.collate_fn
+        self.model_save_path = model_save_path # Store the save path
         self.loader = DataLoader(
             dataset,
             batch_size=batch_size,
@@ -126,8 +128,9 @@ class ModelTrainer:
                 best_loss = current_loss
                 no_improve_count = 0
                 # Ensure the path exists
-                os.makedirs(os.path.dirname("./models/distilbart_slogan_model.pt"), exist_ok=True)
-                torch.save(self.model.state_dict(), "./models/distilbart_slogan_model.pt")
+                os.makedirs(os.path.dirname(self.model_save_path), exist_ok=True)
+                print(f"Saving model to {self.model_save_path}...")
+                torch.save(self.model.state_dict(), self.model_save_path)
                 print(f"Model saved with loss: {best_loss:.4f}")
             else:
                 no_improve_count += 1
@@ -135,7 +138,5 @@ class ModelTrainer:
                     print(f"Early stopping triggered after {patience} epochs without improvement.")
                     break
 
-        # Save final model regardless of performance
-        torch.save(self.model.state_dict(), "./models/distilbart_slogan_model_final.pt")
         print("Training completed!")
         

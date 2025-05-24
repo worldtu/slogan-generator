@@ -1,11 +1,11 @@
 import torch
-from finetune_bart.tokenizer import get_tokenizer
-from finetune_bart.data import CausalLMData
-from finetune_bart.trainer import ModelTrainer
-from finetune_bart.infer import SloganGenerator
+from project_finetune_bart_all.tokenizer import get_tokenizer
+from project_finetune_bart_all.data import CausalLMData
+from project_finetune_bart_all.trainer import ModelTrainer
+from project_finetune_bart_all.infer import SloganGenerator
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from finetune_bart.evaluation import RougeEvaluator
+from project_finetune_bart_all.evaluation import RougeEvaluator
 from transformers import BartForConditionalGeneration
 
 import os
@@ -52,7 +52,6 @@ if __name__ == "__main__":
     print(f"-- Using device: {device}")
     model.to(device) # Move model to device before checking path or training
 
-    model_path = "./models/distilbart_slogan_model_final.pt"
     if os.path.exists(model_path):
         print(f"-- Loading existing fine-tuned model from {model_path}")
         model.load_state_dict(torch.load(model_path, map_location=device))
@@ -60,10 +59,11 @@ if __name__ == "__main__":
         print("-- Training new model")
         # Note: Batch size might need to be reduced for BART depending on GPU memory
         # e.g., batch_size=8 or 16
-        trainer = ModelTrainer(model, tokenizer, train_dataset, device=device, batch_size=8, lr=5e-5,
+        trainer = ModelTrainer(model, tokenizer, train_dataset, device=device, batch_size=16, lr=5e-5,
                                 val_dataset=test_dataset,
-                                val_batch_size=8) # Pass tokenizer
-        trainer.train(epochs=3, patience=3, min_delta=0.001) # Fine-tuning usually requires fewer epochs
+                                val_batch_size=16,
+                                model_save_path=model_path) # Pass tokenizer
+        trainer.train(epochs=5, patience=3, min_delta=0.001) # Fine-tuning usually requires fewer epochs
 
     # 6. Example inference
     print("6. Example inference")

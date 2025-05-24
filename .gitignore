@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# Model files
+*.pt
+*.pth
+*.bin
+
+.idea/
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Tokenizer files
+tokenizer/
+
+# Data
+data/*.csv__pycache__/
+*.py[cod]
+*.class
+__pycache__/
+*.py[cod]
+*.class

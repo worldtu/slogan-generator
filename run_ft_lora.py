@@ -1,11 +1,11 @@
 import torch
-from finetune_bart.tokenizer import get_tokenizer
-from finetune_bart.data import CausalLMData
-from finetune_bart.trainer import ModelTrainer
-from finetune_bart.infer import SloganGenerator
+from project_finetune_bart_lora.tokenizer import get_tokenizer
+from project_finetune_bart_lora.data import CausalLMData
+from project_finetune_bart_lora.trainer import ModelTrainer
+from project_finetune_bart_lora.infer import SloganGenerator
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from finetune_bart.evaluation import RougeEvaluator
+from project_finetune_bart_lora.evaluation import RougeEvaluator
 from transformers import BartForConditionalGeneration
 from peft import LoraConfig, get_peft_model, TaskType, PeftModel # Added PEFT imports
 
