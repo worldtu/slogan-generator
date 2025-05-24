@@ -20,17 +20,13 @@ class ModelTrainer:
         device: str = "cpu",
         val_dataset: Dataset = None,
         val_batch_size: int = None,
-        warmup_ratio: float = 0.1,
-        model_save_path: str = None # New: Path to save LoRA adapters
+        warmup_ratio: float = 0.1
     ):
         self.device = device
         self.model = model.to(device)
         self.tokenizer = tokenizer
         self.dataset = dataset
-        self.model_save_path = model_save_path # Store the save path
-
         collate_function = self.dataset.collate_fn
-
         self.loader = DataLoader(
             dataset,
             batch_size=batch_size,
@@ -38,8 +34,7 @@ class ModelTrainer:
             num_workers=0,
             collate_fn=collate_function
         )
-        # For LoRA, we only want to optimize the trainable parameters
-        self.optim = torch.optim.AdamW(filter(lambda p: p.requires_grad, self.model.parameters()), lr=lr, weight_decay=0.01)
+        self.optim = torch.optim.AdamW(self.model.parameters(), lr=lr, weight_decay=0.01)
         self.warmup_ratio = warmup_ratio
 
         # Validation dataset and loader
@@ -131,15 +126,16 @@ class ModelTrainer:
                 best_loss = current_loss
                 no_improve_count = 0
                 # Ensure the path exists
-                os.makedirs(os.path.dirname(self.model_save_path), exist_ok=True)
-                print(f"Saving LoRA adapters to {self.model_save_path}...")
-                self.model.save_pretrained(self.model_save_path)
-                print(f"LoRA adapters saved with loss: {best_loss:.4f}")
+                os.makedirs(os.path.dirname("./models/distilbart_slogan_model.pt"), exist_ok=True)
+                torch.save(self.model.state_dict(), "./models/distilbart_slogan_model.pt")
+                print(f"Model saved with loss: {best_loss:.4f}")
             else:
                 no_improve_count += 1
                 if no_improve_count >= patience:
                     print(f"Early stopping triggered after {patience} epochs without improvement.")
                     break
-            
+
+        # Save final model regardless of performance
+        torch.save(self.model.state_dict(), "./models/distilbart_slogan_model_final.pt")
         print("Training completed!")
         
