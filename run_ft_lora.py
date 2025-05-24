@@ -113,18 +113,18 @@ if __name__ == "__main__":
         print("Actual slogan:", ex[1])
         print("====================================")
 
-    # # 7. Evaluate with ROUGE scores
-    # print("\n7. Evaluating with ROUGE scores")
-    # evaluator = RougeEvaluator(model, tokenizer, device=device)
+    # 7. Evaluate with ROUGE scores
+    print("\n7. Evaluating with ROUGE scores")
+    evaluator = RougeEvaluator(model, tokenizer, device=device)
     
-    # print("\nEvaluating on training set (subset):")
-    # train_results, train_preds = evaluator.evaluate_dataset(train_csv, num_samples=100)
-    # evaluator.print_results(train_results)
-    # # train_preds.to_csv(f"results/train_predictions_lora_{model_name.replace('/', '_')}.csv", index=False)
+    print("\nEvaluating on training set (subset):")
+    train_results, train_preds = evaluator.evaluate_dataset(train_csv, num_samples=100)
+    evaluator.print_results(train_results)
+    # train_preds.to_csv(f"results/train_predictions_lora_{model_name.replace('/', '_')}.csv", index=False)
     
-    # print("\nEvaluating on test set (subset):")
-    # test_results, test_preds = evaluator.evaluate_dataset(test_csv, num_samples=100)
-    # evaluator.print_results(test_results)
-    # # test_preds.to_csv(f"results/test_predictions_lora_{model_name.replace('/', '_')}.csv", index=False)
+    print("\nEvaluating on test set (subset):")
+    test_results, test_preds = evaluator.evaluate_dataset(test_csv, num_samples=100)
+    evaluator.print_results(test_results)
+    # test_preds.to_csv(f"results/test_predictions_lora_{model_name.replace('/', '_')}.csv", index=False)
     
-    # evaluator.save_results(train_results, test_results, output_file=f"results/rouge_scores_{model_name.replace('/', '_')}.txt")
+    evaluator.save_results(train_results, test_results, output_file=f"results/rouge_scores_{model_name.replace('/', '_')}.txt")
