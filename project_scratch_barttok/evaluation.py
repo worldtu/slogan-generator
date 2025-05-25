@@ -2,7 +2,7 @@ import pandas as pd
 import torch
 from rouge_score import rouge_scorer
 from tqdm import tqdm
-from scratch_model.infer import SloganGenerator
+from project_scratch_barttok.infer import SloganGenerator
 
 class RougeEvaluator:
     """

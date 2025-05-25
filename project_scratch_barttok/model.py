@@ -8,12 +8,13 @@ class DecoderOnlyTransformer(nn.Module):
     def __init__(
         self,
         vocab_size: int,
-        d_model: int = 512,
-        n_head: int = 8,
-        num_layers: int = 12,
-        dim_ff: int = 2048,
-        max_len: int = 512,
-        dropout: int = 0.1
+        d_model: int = 128,
+        n_head: int = 2,
+        num_layers: int = 3,
+        dim_ff: int = 256,
+        max_len: int = 128,
+        dropout: int = 0.1,
+        tokenizer = None
     ):
         super().__init__()
         self.token_emb = nn.Embedding(vocab_size, d_model)
@@ -22,9 +23,13 @@ class DecoderOnlyTransformer(nn.Module):
                                             dropout=dropout, norm_first=True)
         self.decoder = nn.TransformerDecoder(layer, num_layers=num_layers)
         self.norm_f = nn.LayerNorm(d_model)
-        self.out_head = nn.Linear(d_model, vocab_size)
         self.dropout = nn.Dropout(dropout)
         
+        # Tie weights: make the output_projection layer use the same weights as the token_emb layer
+        self.out_head = nn.Linear(d_model, vocab_size, bias=False)
+        self.out_head.weight = self.token_emb.weight
+        self.tokenizer = tokenizer
+
         # Initialize parameters with better values
         self._init_parameters()
 
@@ -38,8 +43,9 @@ class DecoderOnlyTransformer(nn.Module):
         nn.init.zeros_(self.norm_f.bias)
 
         # Initialize output projection
-        nn.init.normal_(self.out_head.weight, mean=0.0, std=0.02)
-        nn.init.zeros_(self.out_head.bias)
+        # nn.init.normal_(self.out_head.weight, mean=0.0, std=0.02)
+        if self.out_head.bias is not None:
+            nn.init.zeros_(self.out_head.bias)
         
         # Initialize transformer layers
         for name, param in self.decoder.named_parameters():
@@ -59,19 +65,20 @@ class DecoderOnlyTransformer(nn.Module):
         x = self.token_emb(input_ids) + self.pos_emb(positions)
         x = self.dropout(x)
         
-        # Store original input for global residual connection
-        original_input = x
-        
         # Create causal mask for self-attention
         mask = torch.triu(torch.ones(T, T, device=x.device), diagonal=1).bool()
         # Memory for cross-attention (not used in decoder-only model)
         mem = torch.zeros(1, B, x.size(2), device=x.device)
 
         out = self.decoder(x, mem, tgt_mask=mask)
-        # Add global residual connection
-        out = out + original_input
         out = self.norm_f(out)
 
         logits = self.out_head(out)
         
+        predicted_token_ids = torch.argmax(logits, dim=-1) # Shape: (T, B)
+
+        first_sequence_predicted_ids = predicted_token_ids[:, 0].tolist()
+        predicted_sequence_text = self.tokenizer.decode(first_sequence_predicted_ids)
+        print(f"Predicted sequence (1st in batch): {predicted_sequence_text}")
+
         return logits

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
+import os
 
 class ModelTrainer:
     """
@@ -16,7 +17,8 @@ class ModelTrainer:
         lr: float = 3e-4,
         device: str = "cpu",
         val_dataset: Dataset = None,
-        val_batch_size: int = None
+        val_batch_size: int = None,
+        model_save_path: str = "./models_scratch/decoder_only_model.pt"
     ):
         self.device = device
         self.model = model.to(device)
@@ -29,6 +31,7 @@ class ModelTrainer:
             num_workers=0,
             collate_fn=dataset.collate_fn
         )
+        self.model_save_path = model_save_path # Store the save path
         self.optim = torch.optim.AdamW(self.model.parameters(), lr=lr, weight_decay=0.01)
         self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
         
@@ -57,12 +60,17 @@ class ModelTrainer:
         total_loss = 0.0
         
         with torch.no_grad():
-            for inputs, labels in self.val_loader:
+            for inputs, labels, prompt_lengths in self.val_loader:
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
+                prompt_lengths = prompt_lengths.to(self.device)
+
                 logits = self.model(inputs)
                 
                 T, B, V = logits.shape
-                loss = self.criterion(logits.view(T*B, V), labels.view(T*B))
+                loss_labels = labels.clone()
+                for i in range(B): # Iterate over batch
+                    loss_labels[:prompt_lengths[i], i] = self.criterion.ignore_index
+                loss = self.criterion(logits.view(T*B, V), loss_labels.view(T*B))
                 total_loss += loss.item()
                 
         avg_loss = total_loss / len(self.val_loader)
@@ -86,14 +94,18 @@ class ModelTrainer:
             total_loss = 0.0
             progress_bar = tqdm(self.loader, desc=f"Epoch {epoch+1}/{epochs}")
 
-            for inputs, labels in progress_bar:
+            for inputs, labels, prompt_lengths in progress_bar:
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
+                prompt_lengths = prompt_lengths.to(self.device)
                 
                 self.optim.zero_grad()
                 logits = self.model(inputs)
 
                 T, B, V = logits.shape
-                loss = self.criterion(logits.view(T*B, V), labels.view(T*B))
+                loss_labels = labels.clone()
+                for i in range(B): # Iterate over batch
+                    loss_labels[:prompt_lengths[i], i] = self.criterion.ignore_index
+                loss = self.criterion(logits.view(T*B, V), loss_labels.view(T*B))
                 
                 loss.backward()
                 # Gradient clipping to prevent exploding gradients
@@ -118,17 +130,15 @@ class ModelTrainer:
                 best_loss = current_loss
                 no_improve_count = 0
                 # Save model if it's the best so far
-                torch.save(self.model.state_dict(), "./models/decoder_only_model.pt")
+                os.makedirs(os.path.dirname(self.model_save_path), exist_ok=True)
+                print(f"Saving model to {self.model_save_path}...")
+                torch.save(self.model.state_dict(), self.model_save_path)
                 print(f"Model saved with loss: {best_loss:.4f}")
             else:
-                # No improvement
                 no_improve_count += 1
-                print(f"No improvement for {no_improve_count} epochs")
                 if no_improve_count >= patience:
-                    print(f"Early stopping after {epoch+1} epochs")
+                    print(f"Early stopping triggered after {patience} epochs without improvement.")
                     break
-    
-        # Save final model regardless of performance
-        torch.save(self.model.state_dict(), "./models/decoder_only_model_final.pt")
+
         print("Training completed!")
         
