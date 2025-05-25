@@ -98,14 +98,29 @@ if __name__ == "__main__":
     print(f"Input description: {example}")
     print("Generated slogan:", gen.generate(example))
 
-    exes = [['Easily deliver personalized activities that enrich the lives of residents in older adult communities. Save time and increase satisfaction.',
+    exes = [
+        # --- valid.csv
+        ['Easily deliver personalized activities that enrich the lives of residents in older adult communities. Save time and increase satisfaction.',
         'Build World-Class Recreation Programs'],
        ['Powerful lead generation software that converts abandoning visitors into subscribers with our dynamic marketing tools and Exit Intent® technology.',
         'Most Powerful Lead Generation Software for Marketers'],
        ["Twine matches companies to the best digital and creative freelancers from a network of over 260,000. It's free to post a job and you only pay when you hire.",
         'Hire quality freelancers for your job'],
        ["Looking for fresh web design & development? Need new marketing materials or a smart campaign to drive business? How about a video or updated photos? Let's talk and tell the world your story.",
-        'Ohio Marketing, Web Design & Development']]
+        'Ohio Marketing, Web Design & Development'],
+        # --- test-curated.csv
+        ['Our expert team of Analytical Chemists provide eLiquid analysis & manufacturing services, ensuring full regulatory compliance for the e-cigarette market.',
+        'E-Liquid Testing UK'],
+       ['From placing entire software engineering teams to integrating easily into your current team, we offer bespoke placements of the very best engineers.',
+        'Software Development Consultancy London'],
+       ['Turning ideas into visual content since 1999. Content Creation Studio in Ghent. Branded content - corporate video - visuals for events - 360 video',
+        'The Image Distillery'],
+       ['World market leader for robotic vision systems, inline measurement technology & inspection technology. We are your partner at over 25 locations worldwide.',
+        'Leading Machine Vision Systems'],
+        # --- other examples
+        ['People and projects for sustainable change. Experts in sustainability recruitment, we recruit exceptional people into roles working on sustainability projects or in ethical and responsible organisations.',
+         'Change Agents UK']
+        ]
     print("====================================")
     for ex in exes:
         print(f"Input description: {ex[0]}")
