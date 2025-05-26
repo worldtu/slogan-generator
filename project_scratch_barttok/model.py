@@ -1,5 +1,8 @@
 import torch
 import torch.nn as nn
+import logging
+
+logger = logging.getLogger(__name__)
 
 class DecoderOnlyTransformer(nn.Module):
     """
@@ -79,6 +82,6 @@ class DecoderOnlyTransformer(nn.Module):
 
         first_sequence_predicted_ids = predicted_token_ids[:, 0].tolist()
         predicted_sequence_text = self.tokenizer.decode(first_sequence_predicted_ids)
-        print(f"Predicted sequence (1st in batch): {predicted_sequence_text}")
+        logger.info(f"Predicted sequence: {predicted_sequence_text}") 
 
         return logits

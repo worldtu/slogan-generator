@@ -3,6 +3,9 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ModelTrainer:
     """
@@ -69,7 +72,7 @@ class ModelTrainer:
                 T, B, V = logits.shape
                 loss_labels = labels.clone()
                 for i in range(B): # Iterate over batch
-                    loss_labels[:prompt_lengths[i], i] = self.criterion.ignore_index
+                    loss_labels[:prompt_lengths[i], i] = self.criterion.ignore_index # Apply masking
                 loss = self.criterion(logits.view(T*B, V), loss_labels.view(T*B))
                 total_loss += loss.item()
                 
@@ -98,6 +101,15 @@ class ModelTrainer:
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
                 prompt_lengths = prompt_lengths.to(self.device)
                 
+                # for b in range(2):  # look at first two examples
+                #     label_ids = labels[:, b].tolist()
+                #     input_ids = inputs[:, b].tolist()
+                #     decoded = self.tokenizer.decode(label_ids, skip_special_tokens=False)
+                #     print(f"Example {b}:")
+                #     print("  Raw IDs:   ", label_ids)
+                #     print("  Decoded:   ", decoded.replace(' ', '_'))
+                #     print("  Prompt len:", prompt_lengths[b].item())
+
                 self.optim.zero_grad()
                 logits = self.model(inputs)
 
@@ -120,7 +132,10 @@ class ModelTrainer:
             val_loss = self.validate()
             # Use validation loss if available, otherwise use training loss
             current_loss = val_loss if val_loss is not None else train_avg_loss
-            print(f"Epoch {epoch+1}/{epochs}  train_loss={train_avg_loss:.4f}  val_loss={val_loss:.4f}")
+            log_msg = f"Epoch {epoch+1}/{epochs}  train_loss={train_avg_loss:.4f}"
+            if val_loss is not None:
+                log_msg += f"  val_loss={val_loss:.4f}"
+            logger.info(log_msg)
             
             # Update learning rate based on loss
             self.scheduler.step(current_loss)
@@ -131,14 +146,14 @@ class ModelTrainer:
                 no_improve_count = 0
                 # Save model if it's the best so far
                 os.makedirs(os.path.dirname(self.model_save_path), exist_ok=True)
-                print(f"Saving model to {self.model_save_path}...")
+                logger.info(f"Saving model to {self.model_save_path}")
                 torch.save(self.model.state_dict(), self.model_save_path)
-                print(f"Model saved with loss: {best_loss:.4f}")
+                logger.info(f"Model saved with loss: {best_loss:.4f}")
             else:
                 no_improve_count += 1
                 if no_improve_count >= patience:
-                    print(f"Early stopping triggered after {patience} epochs without improvement.")
+                    logger.info(f"Early stopping triggered after {patience} epochs without improvement.")
                     break
 
-        print("Training completed!")
+        logger.info("Training completed!")
         

@@ -2,7 +2,9 @@ import torch
 from torchinfo import summary
 from model import DecoderOnlyTransformer
 from tokenizer import get_tokenizer
+import logging
 
+logger = logging.getLogger(__name__)
 
 # --- Step 1: Instantiate or Load your Model ---
 # You MUST have an instance of your model first.
@@ -17,7 +19,7 @@ from tokenizer import get_tokenizer
 # You would get vocab_size from your tokenizer, e.g., tokenizer.get_vocab_size()
 actual_vocab_size = 50265 # Replace with your actual vocabulary size
 model = DecoderOnlyTransformer(vocab_size=actual_vocab_size)
-print(f"Instantiating DecoderOnlyTransformer with vocab_size: {actual_vocab_size}")
+logger.info(f"Instantiating DecoderOnlyTransformer with vocab_size: {actual_vocab_size}") 
 
 # model.load_state_dict(torch.load(model_path))
 # model = DecoderOnlyTransformer(
@@ -37,7 +39,7 @@ print(f"Instantiating DecoderOnlyTransformer with vocab_size: {actual_vocab_size
 # model.load_state_dict(torch.load(model_path))
 # model.eval() # Set to evaluation mode if you're just inspecting
 
-print("Model instantiated/loaded.")
+logger.info("Model instantiated/loaded.") 
 
 # --- Step 2: Retrieve parameters from the model instance ---
 retrieved_config = {
@@ -50,9 +52,9 @@ retrieved_config = {
     'dropout': model.dropout.p
 }
 
-print("\nRetrieved Model Configuration:")
+logger.info("\nRetrieved Model Configuration:")
 for key, value in retrieved_config.items():
-    print(f"  {key}: {value}")
+    logger.info(f"  {key}: {value}")
 
 # --- Step 3: Use torchinfo with an example input shape ---
 # For a transformer, a common input shape is (sequence_length, batch_size) 
@@ -62,12 +64,12 @@ example_input_shape = (64, 1) # sequence_length=64, batch_size=1
 # Ensure the input tensor matches the expected dtype (usually long for input_ids)
 example_input = torch.randint(0, retrieved_config['vocab_size'], example_input_shape, dtype=torch.long)
 
-print(f"\nGenerating model summary with input shape: {example_input_shape} (SeqLen, Batch)")
+logger.info(f"\nGenerating model summary with input shape: {example_input_shape} (SeqLen, Batch)")
 model_summary = summary(model, input_data=example_input, col_names=["input_size", "output_size", "num_params", "kernel_size", "mult_adds"], verbose=0)
 # verbose=0 to prevent torchinfo from printing its own summary before we print ours
 
-print(model_summary)
+logger.info(str(model_summary))
 
-print(f"\nTotal parameters: {model_summary.total_params}")
-print(f"Trainable parameters: {model_summary.trainable_params}")
-print(f"Non-trainable parameters: {model_summary.total_params - model_summary.trainable_params}")
+logger.info(f"\nTotal parameters: {model_summary.total_params}")
+logger.info(f"Trainable parameters: {model_summary.trainable_params}")
+logger.info(f"Non-trainable parameters: {model_summary.total_params - model_summary.trainable_params}")

@@ -1,14 +1,26 @@
+import os
+import logging
 import torch
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
 from project_scratch_barttok.tokenizer import get_tokenizer
 from project_scratch_barttok.data import CausalLMData
 from project_scratch_barttok.model import DecoderOnlyTransformer
 from project_scratch_barttok.trainer import ModelTrainer
 from project_scratch_barttok.infer import SloganGenerator
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from project_scratch_barttok.evaluation import RougeEvaluator
+from project_scratch_barttok.evaluation import RougeEvaluator 
 
-import os
+# Configure logging
+logging.basicConfig(
+    format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler("training.log"),
+        logging.StreamHandler() # To also print to console
+        ])
+logger = logging.getLogger(__name__)
+
 # Set environment variable to avoid tokenizers warning
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -24,15 +36,15 @@ if __name__ == "__main__":
     test_csv = './data/valid_test.csv'
 
     # 1. Split dataset into train and test
-    print("1. Split dataset into train and test")
+    logger.info("1. Split dataset into train and test")
     if not (os.path.exists(train_csv) and os.path.exists(test_csv)):
-        print("-- Splitting dataset")
+        logger.info("-- Splitting dataset")
         df = pd.read_csv(CSV_PATH)
         train_df, test_df = train_test_split(df, test_size=0.2, random_state=123)
         train_df.to_csv(train_csv, index=False)
         test_df.to_csv(test_csv, index=False)
     else:
-        print("-- Train/Test split already exists.")
+        logger.info("-- Train/Test split already exists.")
 
     # # 2. Train tokenizer on full dataset
     # print("2. Train tokenizer on full dataset")
@@ -40,45 +52,45 @@ if __name__ == "__main__":
     # tokenizer = tt.train(train_csv)
 
     # 2. Load pre-trained tokenizer
-    print(f"2. Load pre-trained tokenizer: {model_name}")
+    logger.info(f"2. Load pre-trained tokenizer: {model_name}")
     tokenizer = get_tokenizer(model_name)
 
     # 3. Prepare datasets
-    print("3. Prepare datasets")
+    logger.info("3. Prepare datasets")
     train_dataset = CausalLMData(train_csv, tokenizer)
     test_dataset  = CausalLMData(test_csv, tokenizer)
 
     # 4. Build model
-    print("4. Build model")
+    logger.info("4. Build model")
     model = DecoderOnlyTransformer(vocab_size=tokenizer.vocab_size, tokenizer=tokenizer)
 
     # 5. Train
-    print("5. Train")
+    logger.info("5. Train")
     device = "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
-    print(f"-- Using device: {device}")
+    logger.info(f"-- Using device: {device}")
     model.to(device)
     
     # Check if model already exists
     if os.path.exists(model_path):
-        print("-- Loading existing model")
+        logger.info("-- Loading existing model")
         model.load_state_dict(torch.load(model_path))
     else:
-        print("-- Training new model")
+        logger.info("-- Training new model")
         trainer = ModelTrainer(model, tokenizer, train_dataset, device=device,
                                 model_save_path=model_path,
-                                batch_size=32,
-                                lr=1e-4,
+                                batch_size=64,
+                                lr=5e-5,
                                 val_dataset=test_dataset,
-                                val_batch_size=32)
-        trainer.train(epochs=1, patience=5, min_delta=0.001)
+                                val_batch_size=64)
+        trainer.train(epochs=200, patience=20, min_delta=0.001)
 
     # 6. Example inference
-    print("6. Example inference")
+    logger.info("6. Example inference")
     gen = SloganGenerator(model, tokenizer, device)
     example = "Funding property projects through peer to peer lending, creating a win-win situation for both investors and property professionals"
-    print("\nGenerated slogan:", gen.generate(example))
+    logger.info("Generated slogan:", gen.generate_beam(example))
 
-    exes = [
+    examples = [
         # --- valid.csv
         ['Easily deliver personalized activities that enrich the lives of residents in older adult communities. Save time and increase satisfaction.',
         'Build World-Class Recreation Programs'],
@@ -101,26 +113,28 @@ if __name__ == "__main__":
         ['People and projects for sustainable change. Experts in sustainability recruitment, we recruit exceptional people into roles working on sustainability projects or in ethical and responsible organisations.',
          'Change Agents UK']
         ]
-    print("====================================")
-    for ex in exes:
-        print(f"Input description: {ex[0]}")
-        print("Generated slogan:", gen.generate(ex[0]))
-        print("Actual slogan:", ex[1])
-        print("====================================")
+    logger.info("====================================")
+    for inp, actual in examples:
+        slogan = gen.generate_beam(inp)
+        logger.info(f"Input description: {inp}")
+        logger.info(f"Generated slogan: {slogan}")
+        logger.info(f"Actual slogan:    {actual}")
+        logger.info("====================================")
 
     # 7. Evaluate with ROUGE scores
-    print("\n7. Evaluating with ROUGE scores")
+    logger.info("7. Evaluating with ROUGE scores")
     evaluator = RougeEvaluator(model, tokenizer, device)
     
-    # Evaluate on training set (you can limit the number of samples for faster evaluation)
-    print("\nEvaluating on training set:")
+    # Evaluate on training set (you can limit samples for speed)
+    logger.info("Evaluating on training set:")
     train_results = evaluator.evaluate_dataset(train_csv, num_samples=100)
     evaluator.print_results(train_results)
     
     # Evaluate on test set
-    print("\nEvaluating on test set:")
+    logger.info("Evaluating on test set:")
     test_results = evaluator.evaluate_dataset(test_csv, num_samples=100)
     evaluator.print_results(test_results)
     
     # Save the evaluation results
     evaluator.save_results(train_results, test_results)
+    logger.info("ROUGE evaluation complete and results saved.")
