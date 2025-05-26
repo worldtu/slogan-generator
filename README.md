@@ -18,4 +18,4 @@ Refering to the original paper, the models are using ROUGE for evaluating the qu
 
 ### Loss Plot for Fine-tuning
 
-![Fine-tuning loss curve](./Fine-Tuning Loss.png)
+![Fine-tuning loss curve](./Fine-Tuning%20Loss.png)
