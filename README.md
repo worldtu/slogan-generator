@@ -15,3 +15,7 @@ Based on dataset and method in the following paper:
 ### Metrics for Evaluation
 
 Refering to the original paper, the models are using ROUGE for evaluating the quality of the slogan generated.
+
+### Loss Plot for Fine-tuning
+
+![Fine-tuning loss curve](Fine-Tuning Loss.png)
