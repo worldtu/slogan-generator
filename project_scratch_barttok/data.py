@@ -49,3 +49,25 @@ class CausalLMData(Dataset):
         labels = nn.utils.rnn.pad_sequence(labels, batch_first=False, padding_value=self.criterion_ignore_index)
         prompt_lengths = torch.tensor(prompt_lengths, dtype=torch.long)
         return inputs, labels, prompt_lengths
+
+
+class RLDataset(Dataset):
+    def __init__(self, csv_path: str, tokenizer, max_length: int = 128, 
+                str_start: str = "Desctiption: ", str_end: str = "Generate Slogan: "):
+        self.data = pd.read_csv(csv_file_path)
+        self.prompts = self.data['prompt'].tolist()
+        self.references = self.data['reference_slogan'].tolist()
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.prompts[idx], self.references[idx]
+
+    @staticmethod
+    def collate_fn_rl(batch):
+        # batch is a list of tuples: [(prompt1, ref1), (prompt2, ref2), ...]
+        prompts = [item[0] for item in batch]
+        references = [item[1] for item in batch]
+        return prompts, references
+    

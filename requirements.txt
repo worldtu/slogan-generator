@@ -1,0 +1,11 @@
+pandas
+scikit-learn
+torch
+transformers
+tqdm
+peft
+rouge-score
+
+# pip install -r requirements.txt
+# python run_scratch_barttok.py
+# python run_ft_lora.py

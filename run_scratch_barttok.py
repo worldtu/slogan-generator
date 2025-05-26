@@ -11,6 +11,8 @@ from project_scratch_barttok.trainer import ModelTrainer
 from project_scratch_barttok.infer import SloganGenerator
 from project_scratch_barttok.evaluation import RougeEvaluator 
 
+torch.cuda.empty_cache()
+
 # Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',

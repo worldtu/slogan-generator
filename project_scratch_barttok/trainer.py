@@ -27,7 +27,8 @@ class ModelTrainer:
         val_batch_size: int = None,
         model_save_path: str = "./models_scratch/decoder_only_model.pt",
         epochs: int = 5,
-        entropy_weight: float = 0.1  # Added hyperparameter for entropy penalty
+        # entropy_weight: float = 0.1  # Added hyperparameter for entropy penalty
+        entropy_weight: float = None  # Added hyperparameter for entropy penalty
     ):
         self.device = device
         self.model = model.to(device)
@@ -51,8 +52,8 @@ class ModelTrainer:
         for w in common_words:
             tid = tokenizer.convert_tokens_to_ids(w)
             if tid != tokenizer.unk_token_id:
-                weights[tid] = 0.001  # adjust this factor as neede
-
+                weights[tid] = 0.001  # adjust this factor as needed
+        weights[tokenizer.eos_token_id] = 0.0001
         self.entropy_weight = entropy_weight
 
         self.criterion = nn.CrossEntropyLoss(ignore_index=-100, weight=weights, 

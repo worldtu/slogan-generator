@@ -25,5 +25,5 @@ Her eighth husband, Rashid Rajput, was deported in 2006 to his native Pakistan a
 If convicted, Barrientos faces up to four years in prison.  Her next court appearance is scheduled for May 18.
 """
 
-ARTICLE = "Funding property projects through peer to peer lending, creating a win-win situation for both investors and property professionals"
+ARTICLE = "Twine matches companies to the best digital and creative freelancers from a network of over 260,000. It's free to post a job and you only pay when you hire."
 print(summarizer(ARTICLE, max_length=15, min_length=5, do_sample=False))
