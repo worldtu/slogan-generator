@@ -78,11 +78,13 @@ if __name__ == "__main__":
         logger.info("-- Training new model")
         trainer = ModelTrainer(model, tokenizer, train_dataset, device=device,
                                 model_save_path=model_path,
-                                batch_size=64,
-                                lr=5e-5,
+                                batch_size=32,  # 128 on virtual machines with 24 GB memory
+                                lr=1e-4,
                                 val_dataset=test_dataset,
-                                val_batch_size=64)
-        trainer.train(epochs=200, patience=20, min_delta=0.001)
+                                val_batch_size=32,
+                                epochs=20)
+        # trainer.train(epochs=2000, patience=20, min_delta=0.001)  # only on virtual machines
+        trainer.train(patience=2, min_delta=0.001)
 
     # 6. Example inference
     logger.info("6. Example inference")

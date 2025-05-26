@@ -3,6 +3,10 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import os
+from rouge_score import rouge_scorer
+from project_scratch_barttok.infer import SloganGenerator
+from transformers import get_linear_schedule_with_warmup
+import torch.optim.lr_scheduler as sched
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,11 +25,14 @@ class ModelTrainer:
         device: str = "cpu",
         val_dataset: Dataset = None,
         val_batch_size: int = None,
-        model_save_path: str = "./models_scratch/decoder_only_model.pt"
+        model_save_path: str = "./models_scratch/decoder_only_model.pt",
+        epochs: int = 5,
+        entropy_weight: float = 0.1  # Added hyperparameter for entropy penalty
     ):
         self.device = device
         self.model = model.to(device)
         self.tokenizer = tokenizer
+        self.epochs = epochs
         self.dataset = dataset
         self.loader = DataLoader(
             dataset,
@@ -36,7 +43,20 @@ class ModelTrainer:
         )
         self.model_save_path = model_save_path # Store the save path
         self.optim = torch.optim.AdamW(self.model.parameters(), lr=lr, weight_decay=0.01)
-        self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
+        
+        # Penalize the model for generating common words
+        weights = torch.ones(tokenizer.vocab_size, device=self.device)
+        common_words = ["<eos>", "and", "the", "of", "to", "a", "in", "for", "on", "with",
+                        "is","it","that","at","by","from","this", "be","as","are","or","an","was"]
+        for w in common_words:
+            tid = tokenizer.convert_tokens_to_ids(w)
+            if tid != tokenizer.unk_token_id:
+                weights[tid] = 0.001  # adjust this factor as neede
+
+        self.entropy_weight = entropy_weight
+
+        self.criterion = nn.CrossEntropyLoss(ignore_index=-100, weight=weights, 
+                                             label_smoothing=0.3)
         
         # Validation dataset and loader
         self.val_dataset = val_dataset
@@ -49,9 +69,28 @@ class ModelTrainer:
                 collate_fn=val_dataset.collate_fn
             )
         
+        # # RL training dataset and loader
+        # self.train_dataset_rl = train_dataset_rl
+        # if train_dataset_rl is not None:
+        #     self.train_dataloader_rl = DataLoader(
+        #         train_dataset_rl,
+        #         batch_size=batch_size, # Can be different from supervised batch_size
+        #         shuffle=True,
+        #         num_workers=0,
+        #         collate_fn=train_dataset_rl.collate_fn_rl # Assuming a different collate_fn for RL
+        #     )
+            
         # Add learning rate scheduler
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optim, mode='min', factor=0.5, patience=1
+            self.optim, mode='min', factor=0.5, patience=3, min_lr=1e-5)
+        
+        # Warm-up scheduler (step every batch)
+        total_steps  = len(self.loader) * self.epochs
+        warmup_steps = int(0.1 * total_steps)
+        self.warmup_scheduler = get_linear_schedule_with_warmup(
+            self.optim,
+            num_warmup_steps=warmup_steps,
+            num_training_steps=total_steps
         )
 
     def validate(self):
@@ -80,7 +119,7 @@ class ModelTrainer:
         self.model.train()  # Set back to training mode
         return avg_loss
 
-    def train(self, epochs: int = 5, patience: int = 3, min_delta: float = 0.0):
+    def train(self, patience: int = 3, min_delta: float = 0.0):
         """
         Train the model with early stopping.
         
@@ -93,9 +132,9 @@ class ModelTrainer:
         best_loss = float('inf')
         no_improve_count = 0
 
-        for epoch in range(epochs):
+        for epoch in range(self.epochs):
             total_loss = 0.0
-            progress_bar = tqdm(self.loader, desc=f"Epoch {epoch+1}/{epochs}")
+            progress_bar = tqdm(self.loader, desc=f"Epoch {epoch+1}/{self.epochs}")
 
             for inputs, labels, prompt_lengths in progress_bar:
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
@@ -117,12 +156,28 @@ class ModelTrainer:
                 loss_labels = labels.clone()
                 for i in range(B): # Iterate over batch
                     loss_labels[:prompt_lengths[i], i] = self.criterion.ignore_index
-                loss = self.criterion(logits.view(T*B, V), loss_labels.view(T*B))
+                logits2d = logits.view(T * B, V)
+                loss_labels1d = loss_labels.view(T * B)
+                # logits2d = logits2d.to(self.device)
+                # loss_labels1d = loss_labels1d.to(self.device)
+
+                if self.entropy_weight is not None:
+                    ce_loss = self.criterion(logits2d, loss_labels1d)
+                    probs = torch.softmax(logits2d, dim=-1)
+                    # Add a small epsilon to log to prevent log(0) = NaN
+                    entropy_per_token = -(probs * torch.log(probs + 1e-9)) # [T*B, V]
+                    entropy = entropy_per_token.sum(dim=-1).mean()        # scalar, mean 
+                    loss = ce_loss - self.entropy_weight * entropy
+                else:
+                    loss = self.criterion(logits2d, loss_labels1d)
                 
                 loss.backward()
                 # Gradient clipping to prevent exploding gradients
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 self.optim.step()
+                
+                # Step the warm-up scheduler per batch
+                self.warmup_scheduler.step()
 
                 total_loss += loss.item()
                 progress_bar.set_postfix(loss=f"{loss.item():.4f}")
@@ -132,7 +187,7 @@ class ModelTrainer:
             val_loss = self.validate()
             # Use validation loss if available, otherwise use training loss
             current_loss = val_loss if val_loss is not None else train_avg_loss
-            log_msg = f"Epoch {epoch+1}/{epochs}  train_loss={train_avg_loss:.4f}"
+            log_msg = f"Epoch {epoch+1}/{self.epochs}  train_loss={train_avg_loss:.4f}"
             if val_loss is not None:
                 log_msg += f"  val_loss={val_loss:.4f}"
             logger.info(log_msg)
@@ -157,3 +212,64 @@ class ModelTrainer:
 
         logger.info("Training completed!")
         
+    # def train_rl(self, patience: int = 3, min_delta: float = 0.0,
+    #              beam_width: int = 5):
+    #     """
+    #     Fine‐tuning with ROUGE‐L reward.
+    #     """
+    #     self.model.train()
+    #     scorer = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
+    #     generator = SloganGenerator(self.model, self.tokenizer, self.device)
+
+    #     best_loss = float('inf')
+    #     no_improve_count = 0
+
+    #     for epoch in range(epochs):
+    #         total_loss = 0.0
+    #         progress_bar = tqdm(self.loader, desc=f"Epoch {epoch+1}/{epochs}")
+
+    #         for inputs, labels, prompt_lengths in progress_bar:
+    #             inputs, labels = inputs.to(self.device), labels.to(self.device)
+    #             prompt_lengths = prompt_lengths.to(self.device)
+
+
+    #     # Encode all prompts to tensor once
+    #     input_ids = [torch.tensor(self.tokenizer.encode(p)) for p in prompts]
+    #     input_ids = nn.utils.rnn.pad_sequence(input_ids, batch_first=False,
+    #                 padding_value=self.tokenizer.pad_token_id).to(self.device)
+
+    #     # Forward to get log‐probs
+    #     logits = self.model(input_ids)         # [T, B, V]
+    #     logp = torch.log_softmax(logits, -1) # same shape
+
+    #     # 1) Generate beam outputs
+    #     batch_seqs = generator.generate_beam_batch(
+    #         prompts, max_len=50, beam_width=beam_width)  # returns List[List[token_id]]
+
+    #     # 2) Collect log‐probs of generated tokens
+    #     #    Align `logp` and `batch_seqs` so you can sum log‐probs
+    #     #    (skipping BOS/EOS as needed)
+    #     all_logp = []
+    #     for b, seq in enumerate(batch_seqs):
+    #         # turn seq into tensor of shape [L]
+    #         seq_tensor = torch.tensor(seq, device=self.device)
+    #         # gather log‐probs step by step:
+    #         lp = logp[:, b, :].gather(1, seq_tensor.unsqueeze(1))
+    #         all_logp.append(lp.sum())
+    #     mean_logp = torch.stack(all_logp).mean()
+
+    #     # 3) Compute average ROUGE‐L reward
+    #     rewards = []
+    #     for seq, ref in zip(batch_seqs, references):
+    #         text = self.tokenizer.decode(seq, skip_special_tokens=True)
+    #         reward = scorer.score(ref, text)['rougeL'].fmeasure
+    #         rewards.append(reward)
+    #     mean_reward = torch.tensor(rewards, device=self.device).mean()
+
+    #     # 4) Policy‐gradient loss: – E[log p] × reward
+    #     loss = - mean_logp * mean_reward
+    #     self.optim.zero_grad()
+    #     loss.backward()
+    #     self.optim.step()
+
+    #     logger.info(f"RL step — reward={mean_reward:.4f}  loss={loss.item():.4f}")

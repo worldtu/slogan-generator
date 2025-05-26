@@ -36,7 +36,7 @@ class RougeEvaluator:
             reference   = row['output']
             
             generated = self.generator.generate_beam(description)
-            scores    = self.scorer.score(reference, generated)
+            scores = self.scorer.score(reference, generated)
             
             rouge1_scores.append(scores['rouge1'].fmeasure)
             rouge2_scores.append(scores['rouge2'].fmeasure)
