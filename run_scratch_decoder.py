@@ -4,12 +4,12 @@ import torch
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-from project_scratch_barttok.tokenizer import get_tokenizer
-from project_scratch_barttok.data import CausalLMData
-from project_scratch_barttok.model import DecoderOnlyTransformer
-from project_scratch_barttok.trainer import ModelTrainer
-from project_scratch_barttok.infer import SloganGenerator
-from project_scratch_barttok.evaluation import RougeEvaluator 
+from project_scratch_decoder.tokenizer import get_tokenizer
+from project_scratch_decoder.data import CausalLMData
+from project_scratch_decoder.model import DecoderOnlyTransformer
+from project_scratch_decoder.trainer import ModelTrainer
+from project_scratch_decoder.infer import SloganGenerator
+from project_scratch_decoder.evaluation import RougeEvaluator 
 
 torch.cuda.empty_cache()
 
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     
     # Paths
     model_name = "sshleifer/distilbart-cnn-6-6" # Changed model identifier
-    model_path = f'./models_scratch/barttok_decoder_only.pt'
+    model_path = f'./models_barttok/barttok_decoder_only.pt'
     # tokenizer_path = './models/tokenizer.json'
     CSV_PATH = "./data/valid.csv"
     train_csv = './data/valid_train.csv'
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     # Check if model already exists
     if os.path.exists(model_path):
         logger.info("-- Loading existing model")
-        model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
     else:
         logger.info("-- Training new model")
         trainer = ModelTrainer(model, tokenizer, train_dataset, device=device,
@@ -125,20 +125,20 @@ if __name__ == "__main__":
         logger.info(f"Actual slogan:    {actual}")
         logger.info("====================================")
 
-    # 7. Evaluate with ROUGE scores
-    logger.info("7. Evaluating with ROUGE scores")
-    evaluator = RougeEvaluator(model, tokenizer, device)
+    # # 7. Evaluate with ROUGE scores
+    # logger.info("7. Evaluating with ROUGE scores")
+    # evaluator = RougeEvaluator(model, tokenizer, device)
     
-    # Evaluate on training set (you can limit samples for speed)
-    logger.info("Evaluating on training set:")
-    train_results = evaluator.evaluate_dataset(train_csv, num_samples=100)
-    evaluator.print_results(train_results)
+    # # Evaluate on training set (you can limit samples for speed)
+    # logger.info("Evaluating on training set:")
+    # train_results = evaluator.evaluate_dataset(train_csv, num_samples=100)
+    # evaluator.print_results(train_results)
     
-    # Evaluate on test set
-    logger.info("Evaluating on test set:")
-    test_results = evaluator.evaluate_dataset(test_csv, num_samples=100)
-    evaluator.print_results(test_results)
+    # # Evaluate on test set
+    # logger.info("Evaluating on test set:")
+    # test_results = evaluator.evaluate_dataset(test_csv, num_samples=100)
+    # evaluator.print_results(test_results)
     
-    # Save the evaluation results
-    evaluator.save_results(train_results, test_results)
-    logger.info("ROUGE evaluation complete and results saved.")
+    # # Save the evaluation results
+    # evaluator.save_results(train_results, test_results)
+    # logger.info("ROUGE evaluation complete and results saved.")

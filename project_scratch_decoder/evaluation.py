@@ -3,7 +3,7 @@ import torch
 import logging
 from rouge_score import rouge_scorer
 from tqdm import tqdm
-from project_scratch_barttok.infer import SloganGenerator
+from project_scratch_decoder.infer import SloganGenerator
 
 logger = logging.getLogger(__name__)
 

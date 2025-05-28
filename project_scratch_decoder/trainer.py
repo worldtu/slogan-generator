@@ -4,7 +4,7 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import os
 from rouge_score import rouge_scorer
-from project_scratch_barttok.infer import SloganGenerator
+from project_scratch_decoder.infer import SloganGenerator
 from transformers import get_linear_schedule_with_warmup
 import torch.optim.lr_scheduler as sched
 import logging

@@ -78,10 +78,10 @@ class DecoderOnlyTransformer(nn.Module):
 
         logits = self.out_head(out)
         
-        predicted_token_ids = torch.argmax(logits, dim=-1) # Shape: (T, B)
+        # predicted_token_ids = torch.argmax(logits, dim=-1) # Shape: (T, B)
 
-        first_sequence_predicted_ids = predicted_token_ids[:, 0].tolist()
-        predicted_sequence_text = self.tokenizer.decode(first_sequence_predicted_ids)
-        logger.info(f"Predicted sequence: {predicted_sequence_text}") 
+        # first_sequence_predicted_ids = predicted_token_ids[:, 0].tolist()
+        # predicted_sequence_text = self.tokenizer.decode(first_sequence_predicted_ids)
+        # logger.info(f"Predicted sequence: {predicted_sequence_text}") 
 
         return logits
