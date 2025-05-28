@@ -4,6 +4,10 @@ Based on dataset and method in the following paper:
 
 > Jin, Yiping, Akshay Bhatia, Dittaya Wanvarie, and Phu TV Le. "Toward Improving Coherence and Diversity of Slogan Generation". Accepted to Natural Language Engineering. Cambridge University Press.
 
+### Project Presentation Slide
+
+- Link: [Project Presentation Slide](https://docs.google.com/presentation/d/1G-S-_JpwF3y__-L6hpzThX44N9kdbaSJzu1x7q2syh8/edit?usp=sharing)
+
 ### 7 Models Included
 
 1. `scratch_rnn`: Using pretrained BART tokenizer, and build a encoder-decoder RNN model from scratch.
